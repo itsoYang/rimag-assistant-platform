@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # MySQL数据库
+  mysql:
+    image: mysql:8.0
+    container_name: assistant_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: password123
+      MYSQL_DATABASE: assistant_management
+      MYSQL_USER: assistant_user
+      MYSQL_PASSWORD: assistant_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --default-authentication-plugin=mysql_native_password
+    networks:
+      - assistant_network
+
+  # 助手管理端中间件
+  assistant_platform:
+    build: .
+    container_name: assistant_platform
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: assistant_user
+      MYSQL_PASSWORD: assistant_pass
+      MYSQL_DATABASE: assistant_management
+      DEBUG: "false"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mysql
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - assistant_network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+
+networks:
+  assistant_network:
+    driver: bridge

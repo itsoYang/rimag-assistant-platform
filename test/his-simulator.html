@@ -1,0 +1,410 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HIS系统模拟器 - 患者信息推送测试</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'sans': ['Microsoft YaHei', 'Arial', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-5 font-sans">
+    <div class="max-w-6xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <!-- 头部 -->
+        <div class="bg-gradient-to-r from-slate-800 to-slate-700 text-white p-8 text-center">
+            <h1 class="text-3xl font-bold mb-2"> HIS系统模拟器</h1>
+            <p class="text-slate-300">患者信息推送接口测试工具</p>
+        </div>
+        
+        <div class="p-8">
+            <!-- 接口配置部分 -->
+            <div class="bg-gray-50 p-6 rounded-xl mb-8">
+                <h4 class="text-lg font-semibold text-slate-700 mb-4"> 接口配置</h4>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <input type="text" id="apiEndpoint" 
+                           value="http://localhost:8000/api/CHKR01/rest/" 
+                           placeholder="输入推送接口地址"
+                           class="flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors">
+                    <button onclick="testConnection()" 
+                            class="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg">
+                        测试连接
+                    </button>
+                </div>
+            </div>
+            
+            <!-- HIS消息头部信息 -->
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold text-slate-700 mb-6 pb-3 border-b-2 border-gray-200"> HIS消息头部信息</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div>
+                        <label for="hospitalCode" class="block text-sm font-medium text-slate-600 mb-2">医院代码 (hospitalCode)</label>
+                        <input type="text" id="hospitalCode" value="H001" required
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors">
+                    </div>
+                    <div>
+                        <label for="hospitalName" class="block text-sm font-medium text-slate-600 mb-2">医院名称 (hospitalName)</label>
+                        <input type="text" id="hospitalName" value="首都医科大学附属友谊医院" required
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors">
+                    </div>
+                    <div>
+                        <label for="userCode" class="block text-sm font-medium text-slate-600 mb-2">用户代码 (userCode)</label>
+                        <input type="text" id="userCode" value="DOC001" required
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors">
+                    </div>
+                    <div>
+                        <label for="userName" class="block text-sm font-medium text-slate-600 mb-2">用户姓名 (userName)</label>
+                        <input type="text" id="userName" value="张医生" required
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors">
+                    </div>
+                    <div>
+                        <label for="userIP" class="block text-sm font-medium text-slate-600 mb-2">用户IP (userIP)</label>
+                        <input type="text" id="userIP" value="127.0.0.1" required
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors">
+                    </div>
+                    <div>
+                        <label for="deptCode" class="block text-sm font-medium text-slate-600 mb-2">科室代码 (deptCode)</label>
+                        <input type="text" id="deptCode" value="12301" required
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors">
+                    </div>
+                    <div>
+                        <label for="deptName" class="block text-sm font-medium text-slate-600 mb-2">科室名称 (deptName)</label>
+                        <input type="text" id="deptName" value="内科" required
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 业务信息 -->
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold text-slate-700 mb-6 pb-3 border-b-2 border-gray-200"> 业务信息</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label for="serviceId" class="block text-sm font-medium text-slate-600 mb-2">服务ID (serviceId)</label>
+                        <input type="text" id="serviceId" value="CHKR01" readonly
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed">
+                    </div>
+                    <div>
+                        <label for="sceneType" class="block text-sm font-medium text-slate-600 mb-2">场景类型 (sceneType)</label>
+                        <input type="text" id="sceneType" value="EXAM001" readonly
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed">
+                    </div>
+                    <div>
+                        <label for="extendSubId" class="block text-sm font-medium text-slate-600 mb-2">扩展子ID (extendSubId)</label>
+                        <input type="text" id="extendSubId" value="AI_REC" readonly
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 患者信息 -->
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold text-slate-700 mb-6 pb-3 border-b-2 border-gray-200"> 患者信息</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div>
+                        <label for="patientId" class="block text-sm font-medium text-slate-600 mb-2">患者ID (patientId)</label>
+                        <input type="text" id="patientId" value="P202501070001" required
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors">
+                    </div>
+                    <div>
+                        <label for="patientName" class="block text-sm font-medium text-slate-600 mb-2">患者姓名 (patientName)</label>
+                        <input type="text" id="patientName" value="李小明" required
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors">
+                    </div>
+                    <div>
+                        <label for="patientAge" class="block text-sm font-medium text-slate-600 mb-2">患者年龄 (patientAge)</label>
+                        <input type="number" id="patientAge" value="45" required
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors">
+                    </div>
+                    <div>
+                        <label for="patientSex" class="block text-sm font-medium text-slate-600 mb-2">患者性别 (patientSex)</label>
+                        <select id="patientSex" required
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors">
+                            <option value="男">男</option>
+                            <option value="女">女</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="visitId" class="block text-sm font-medium text-slate-600 mb-2">就诊ID (visitId)</label>
+                        <input type="text" id="visitId" value="V202501070001" required
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors">
+                    </div>
+                    <div>
+                        <label for="visitType" class="block text-sm font-medium text-slate-600 mb-2">就诊类型 (visitType)</label>
+                        <select id="visitType" required
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors">
+                            <option value="门诊">门诊</option>
+                            <option value="住院">住院</option>
+                            <option value="急诊">急诊</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 临床信息 -->
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold text-slate-700 mb-6 pb-3 border-b-2 border-gray-200"> 临床信息</h3>
+                <div class="space-y-6">
+                    <div>
+                        <label for="clinicInfo" class="block text-sm font-medium text-slate-600 mb-2">临床信息 (clinicInfo)</label>
+                        <textarea id="clinicInfo" rows="4"
+                                  placeholder="请输入患者的临床表现、症状等信息"
+                                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors resize-vertical">患者主诉胸闷气短3天，伴有轻微胸痛。既往有高血压病史5年，规律服药控制。体格检查：血压150/90mmHg，心率88次/分，心律齐，心音正常。</textarea>
+                    </div>
+                    <div>
+                        <label for="abstractHistory" class="block text-sm font-medium text-slate-600 mb-2">病史摘要 (abstractHistory)</label>
+                        <textarea id="abstractHistory" rows="4"
+                                  placeholder="请输入患者的病史摘要信息"
+                                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors resize-vertical">45岁男性，高血压病史5年，近3天出现胸闷气短症状，伴轻微胸痛。无糖尿病、冠心病等其他慢性疾病史。家族史无特殊。</textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 操作按钮 -->
+            <div class="text-center mb-8">
+                <div class="flex flex-wrap justify-center gap-4">
+                    <button onclick="sendPatientInfo()" 
+                            class="px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-medium transition-all duration-200 transform hover:-translate-y-1 hover:shadow-lg">
+                         推送患者信息
+                    </button>
+                    <button onclick="clearForm()" 
+                            class="px-8 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg">
+                         清空表单
+                    </button>
+                    <button onclick="loadSampleData()" 
+                            class="px-8 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg">
+                         加载示例数据
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 响应结果 -->
+            <div id="responseSection" class="hidden mt-8 p-6 bg-gray-50 rounded-xl border-l-4 border-blue-500">
+                <h4 class="text-lg font-semibold text-slate-700 mb-4"> 推送结果</h4>
+                <div id="responseStatus" class="mb-4"></div>
+                <div id="responseContent" 
+                     class="bg-slate-800 text-gray-100 p-4 rounded-lg font-mono text-sm whitespace-pre-wrap max-h-80 overflow-y-auto"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 测试连接
+        async function testConnection() {
+            const endpoint = document.getElementById('apiEndpoint').value;
+            const responseSection = document.getElementById('responseSection');
+            const responseStatus = document.getElementById('responseStatus');
+            const responseContent = document.getElementById('responseContent');
+            
+            responseSection.classList.remove('hidden');
+            responseStatus.innerHTML = '<span class="inline-block px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium"> 测试连接中...</span>';
+            responseContent.textContent = '正在测试连接...';
+            
+            try {
+                // 直接测试推送接口，发送一个简单的测试请求
+                const testData = {
+                    hospitalCode: "H001",
+                    hospitalName: "测试医院",
+                    userCode: "TEST001",
+                    userName: "测试用户",
+                    userIP: "127.0.0.1",
+                    deptCode: "TEST01",
+                    deptName: "测试科室",
+                    serviceId: "CHKR01",
+                    sceneType: "EXAM001",
+                    extendSubId: "AI_REC",
+                    itemData: {
+                        patientId: "TEST001",
+                        patientName: "测试患者",
+                        patientAge: "30",
+                        patientSex: "男",
+                        visitId: "V001",
+                        visitType: "门诊",
+                        clinicInfo: "测试临床信息",
+                        abstractHistory: "测试病史"
+                    }
+                };
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    responseStatus.innerHTML = '<span class="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium"> 连接成功</span>';
+                    responseContent.textContent = JSON.stringify(result, null, 2);
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                responseStatus.innerHTML = '<span class="inline-block px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium"> 连接失败</span>';
+                responseContent.textContent = `错误信息: ${error.message}`;
+            }
+        }
+        
+        // 推送患者信息
+        async function sendPatientInfo() {
+            const endpoint = document.getElementById('apiEndpoint').value;
+            const responseSection = document.getElementById('responseSection');
+            const responseStatus = document.getElementById('responseStatus');
+            const responseContent = document.getElementById('responseContent');
+            
+            // 构建CDSS标准请求数据
+            const requestData = {
+                systemId: "S031",  // 系统ID
+                sceneType: document.getElementById('sceneType').value,
+                state: 0,  // 新增状态
+                patNo: document.getElementById('patientId').value,
+                patName: document.getElementById('patientName').value,
+                admId: document.getElementById('visitId').value,
+                visitType: document.getElementById('visitType').value,
+                deptCode: document.getElementById('deptCode').value,
+                deptDesc: document.getElementById('deptName').value,
+                hospCode: document.getElementById('hospitalCode').value,
+                hospDesc: document.getElementById('hospitalName').value,
+                userIP: document.getElementById('userIP').value,
+                userCode: document.getElementById('userCode').value,
+                userName: document.getElementById('userName').value,
+                msgTime: new Date().toISOString().replace('T', ' ').substring(0, 19), // 格式化时间
+                remark: "",
+                itemData: {
+                    patientAge: document.getElementById('patientAge').value,
+                    patientSex: document.getElementById('patientSex').value,
+                    clinicInfo: document.getElementById('clinicInfo').value,
+                    abstractHistory: document.getElementById('abstractHistory').value
+                }
+            };
+            
+            // 显示响应区域
+            responseSection.classList.remove('hidden');
+            responseStatus.innerHTML = '<span class="inline-block px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium"> 正在推送数据...</span>';
+            responseContent.textContent = '请求数据:\n' + JSON.stringify(requestData, null, 2) + '\n\n正在发送请求...';
+            
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'hospital_id': document.getElementById('hospitalCode').value,
+                        'service_id': 'CHKR01',
+                        'visit_type': '01',
+                        'send_sys_id': 'HIS_SYS_001',
+                        'apply_unit_id': '0',
+                        'exec_unit_id': '0',
+                        'order_exec_id': '0',
+                        'extend_sub_id': 'AI_REC'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    responseStatus.innerHTML = '<span class="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium"> 推送成功</span>';
+                } else {
+                    responseStatus.innerHTML = '<span class="inline-block px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium"> 推送失败</span>';
+                }
+                
+                responseContent.textContent = 
+                    '请求数据:\n' + JSON.stringify(requestData, null, 2) + 
+                    '\n\n响应结果:\n' + JSON.stringify(result, null, 2);
+                    
+            } catch (error) {
+                responseStatus.innerHTML = '<span class="inline-block px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium"> 请求异常</span>';
+                responseContent.textContent = 
+                    '请求数据:\n' + JSON.stringify(requestData, null, 2) + 
+                    '\n\n错误信息:\n' + error.message;
+            }
+        }
+        
+        // 清空表单
+        function clearForm() {
+            const inputs = document.querySelectorAll('input[type="text"], input[type="number"], textarea');
+            inputs.forEach(input => {
+                if (!input.readOnly) {
+                    input.value = '';
+                }
+            });
+            
+            document.getElementById('patientSex').selectedIndex = 0;
+            document.getElementById('visitType').selectedIndex = 0;
+            document.getElementById('responseSection').classList.add('hidden');
+        }
+        
+        // 加载示例数据
+        function loadSampleData() {
+            const sampleData = [
+                {
+                    patientId: 'P202501070001',
+                    patientName: '李小明',
+                    patientAge: 45,
+                    patientSex: '男',
+                    visitId: 'V202501070001',
+                    visitType: '门诊',
+                    clinicInfo: '患者主诉胸闷气短3天，伴有轻微胸痛。既往有高血压病史5年，规律服药控制。体格检查：血压150/90mmHg，心率88次/分，心律齐，心音正常。',
+                    abstractHistory: '45岁男性，高血压病史5年，近3天出现胸闷气短症状，伴轻微胸痛。无糖尿病、冠心病等其他慢性疾病史。家族史无特殊。'
+                },
+                {
+                    patientId: 'P202501070002',
+                    patientName: '王小红',
+                    patientAge: 32,
+                    patientSex: '女',
+                    visitId: 'V202501070002',
+                    visitType: '门诊',
+                    clinicInfo: '患者主诉腹痛2天，位于右下腹，伴有恶心、呕吐。体格检查：右下腹压痛明显，反跳痛阳性，体温38.2C。',
+                    abstractHistory: '32岁女性，2天前开始出现右下腹疼痛，逐渐加重，伴恶心呕吐，发热。既往体健，无手术史。'
+                },
+                {
+                    patientId: 'P202501070003',
+                    patientName: '张大爷',
+                    patientAge: 68,
+                    patientSex: '男',
+                    visitId: 'V202501070003',
+                    visitType: '住院',
+                    clinicInfo: '患者主诉咳嗽咳痰1周，痰中带血丝，伴有发热。既往有COPD病史10年。胸部CT示右肺下叶片状阴影。',
+                    abstractHistory: '68岁男性，COPD病史10年，1周来咳嗽咳痰加重，痰中带血，发热。胸部影像学检查异常。'
+                }
+            ];
+            
+            const randomSample = sampleData[Math.floor(Math.random() * sampleData.length)];
+            
+            Object.keys(randomSample).forEach(key => {
+                const element = document.getElementById(key);
+                if (element) {
+                    element.value = randomSample[key];
+                }
+            });
+            
+            // 更新用户信息
+            const userCodes = ['DOC002'];
+            const userNames = ['李医生'];
+            const deptCodes = ['12302'];
+            const deptNames = ['外科'];
+            
+            // const randomIndex = Math.floor(Math.random() * 3);
+            const randomIndex = 0;
+            document.getElementById('userCode').value = userCodes[randomIndex];
+            document.getElementById('userName').value = userNames[randomIndex];
+            document.getElementById('deptCode').value = deptCodes[randomIndex];
+            document.getElementById('deptName').value = deptNames[randomIndex];
+        }
+        
+        // 页面加载时自动加载示例数据
+        window.onload = function() {
+            loadSampleData();
+        };
+    </script>
+</body>
+</html>
