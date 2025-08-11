@@ -10,7 +10,7 @@
 
 1. **HIS接口接收** - 接收HIS系统推送的患者病历信息
 2. **WebSocket连接管理** - 管理客户端实时连接
-3. **AI服务代理** - 为客户端提供AI推荐服务代理
+3. **AI服务流式推送** - 通过WebSocket为客户端提供AI推荐结果
 4. **AI接口调用** - 调用外部AI推荐服务
 5. **调用链日志** - 完整的业务链路日志记录
 
@@ -43,7 +43,6 @@ rimag-assistant-platform/
 │   ├── api/                    # API路由
 │   │   └── routes/
 │   │       ├── his_push.py    # HIS推送接口
-│   │       ├── ai_proxy.py    # AI代理接口
 │   │       └── websocket_manager.py # WebSocket路由
 │   └── services/               # 业务服务
 │       ├── his_service.py     # HIS业务逻辑
@@ -139,20 +138,9 @@ send_sys_id: HIS_SYS_001
 }
 ```
 
-### AI代理接口
+### AI推荐（WS端到端流式）
 
-```http
-POST /api/ai/recommend
-Content-Type: application/json
-
-{
-  "client_id": "client_12301_001",
-  "doctor_id": "123-001",
-  "request_id": "req_20241219_001",
-  "patient_id": "12345678",
-  "visit_id": "61234567"
-}
-```
+当前已采用 WebSocket 端到端流式。客户端通过 `ai_recommend_request` 发起，请求和分片结果均走 WS；HTTP AI代理接口已移除。
 
 ### WebSocket连接
 

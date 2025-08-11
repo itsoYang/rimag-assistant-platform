@@ -10,7 +10,7 @@ from loguru import logger
 
 from app.core.config import settings
 from app.core.database import init_database
-from app.api.routes import his_push, ai_proxy, websocket_manager
+from app.api.routes import his_push, websocket_manager
 from app.core.logging import setup_logging
 
 
@@ -55,7 +55,7 @@ def create_app() -> FastAPI:
     
     # 注册路由
     app.include_router(his_push.router, prefix="/api", tags=["HIS推送接口"])
-    app.include_router(ai_proxy.router, prefix="/api", tags=["AI服务代理"])
+    # HTTP AI代理已废弃（使用WS端到端流式），不再挂载 ai_proxy 路由
     app.include_router(websocket_manager.router, prefix="/ws", tags=["WebSocket连接"])
     
     # 健康检查
