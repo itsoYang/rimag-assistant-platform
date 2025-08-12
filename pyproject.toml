@@ -17,6 +17,7 @@ dependencies = [
     "loguru>=0.7.0",
     "python-multipart>=0.0.6",
     "cryptography>=41.0.0",
+    "uuid6>=2024.1.12",
 ]
 
 [tool.uv]

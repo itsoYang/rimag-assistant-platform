@@ -32,7 +32,7 @@ class AiService:
         cdss_message: CDSSMessage, 
         request_id: str,
         client_id: str,
-        his_push_log_id: Optional[int] = None
+        his_push_log_id: Optional[str] = None
     ) -> List[AiRecommendationResult]:
         """
         调用外部AI推荐服务
@@ -101,7 +101,7 @@ class AiService:
         request_id: str,
         client_id: str,
         websocket_service: WebSocketService,
-        his_push_log_id: Optional[int] = None,
+        his_push_log_id: Optional[str] = None,
     ) -> List[AiRecommendationResult]:
         """调用外部AI推荐服务（边解析边通过WebSocket推送增量结果）"""
         start_time = time.time()

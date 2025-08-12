@@ -6,7 +6,7 @@ USE assistant_management;
 
 -- 客户端连接表
 CREATE TABLE IF NOT EXISTS client_connections (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+    id CHAR(36) PRIMARY KEY NOT NULL,
     client_id VARCHAR(50) UNIQUE NOT NULL COMMENT '客户端唯一标识',
     doctor_id VARCHAR(50) NOT NULL COMMENT '医生ID',
     doctor_name VARCHAR(100) COMMENT '医生姓名',
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS client_connections (
 
 -- HIS推送记录表（CDSS消息框架）
 CREATE TABLE IF NOT EXISTS his_push_logs (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+    id CHAR(36) PRIMARY KEY NOT NULL,
     message_id VARCHAR(50) UNIQUE NOT NULL COMMENT '消息唯一ID',
     system_id VARCHAR(50) NOT NULL COMMENT '系统ID',
     scene_type VARCHAR(20) DEFAULT 'EXAM001' COMMENT '场景类型（检查项目推荐）',
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS his_push_logs (
 
 -- AI推荐记录表
 CREATE TABLE IF NOT EXISTS ai_recommendation_logs (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+    id CHAR(36) PRIMARY KEY NOT NULL,
     request_id VARCHAR(50) UNIQUE NOT NULL COMMENT '请求ID',
     client_id VARCHAR(50) NOT NULL COMMENT '客户端ID',
     pat_no VARCHAR(50) NOT NULL COMMENT '患者登记号（来自CDSS）',
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS ai_recommendation_logs (
     user_code VARCHAR(50) NOT NULL COMMENT '用户代码（医生ID，来自CDSS）',
     dept_code VARCHAR(20) COMMENT '科室代码（来自CDSS）',
     message_id VARCHAR(50) COMMENT '关联CDSS消息ID',
-    his_push_log_id INTEGER COMMENT '关联HIS推送记录ID',
+    his_push_log_id CHAR(36) COMMENT '关联HIS推送记录ID',
     ai_request_data TEXT NOT NULL COMMENT 'JSON格式的AI服务请求数据',
     ai_response_data TEXT COMMENT 'JSON格式的AI服务完整响应',
     recommendations TEXT COMMENT 'JSON格式的最终推荐结果',
@@ -64,13 +64,12 @@ CREATE TABLE IF NOT EXISTS ai_recommendation_logs (
     session_id VARCHAR(50) COMMENT 'AI服务会话ID',
     status VARCHAR(20) DEFAULT 'success' COMMENT '处理状态',
     error_message TEXT COMMENT '错误信息',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    FOREIGN KEY (his_push_log_id) REFERENCES his_push_logs(id)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI推荐记录表';
 
 -- 系统日志表
 CREATE TABLE IF NOT EXISTS system_logs (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+    id CHAR(36) PRIMARY KEY NOT NULL,
     log_level VARCHAR(10) NOT NULL COMMENT '日志级别',
     module VARCHAR(50) NOT NULL COMMENT '模块名称',
     operation VARCHAR(100) NOT NULL COMMENT '操作描述',

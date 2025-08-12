@@ -102,7 +102,7 @@ class HisService:
             logger.error(f"❌ 保存HIS推送记录失败: {e}")
             raise
     
-    async def update_push_status(self, log_id: int, status: str, error_message: str = None):
+    async def update_push_status(self, log_id: str, status: str, error_message: str = None):
         """更新推送状态"""
         try:
             query = select(HisPushLog).where(HisPushLog.id == log_id)

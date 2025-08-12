@@ -270,7 +270,7 @@ async def handle_ai_recommend_request(client_id: str, data: dict, db: AsyncSessi
             request_id=request_id,
             client_id=client_id,
             websocket_service=ws_service,
-            his_push_log_id=his_log.id,
+            his_push_log_id=str(his_log.id),
         )
 
     except Exception as e:
