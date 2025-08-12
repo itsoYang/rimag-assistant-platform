@@ -60,9 +60,10 @@ class Settings(BaseSettings):
     
     # 日志配置
     LOG_LEVEL: str = "INFO"
-    LOG_FILE_PATH: str = "logs/assistant_management.log"
     LOG_RETENTION: str = "30 days"
     LOG_ROTATION: str = "100 MB"
+    LOG_DIR: str = "logs"               # 日志目录
+    LOG_COMPRESSION: str = "zip"         # 可选："zip" | "gz" | None
     
     # JWT认证配置（预留）
     SECRET_KEY: str = "your-secret-key-change-in-production"

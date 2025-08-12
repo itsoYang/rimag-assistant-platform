@@ -34,7 +34,9 @@ async def websocket_endpoint(
     """
     
     try:
-        logger.info(f"🔄 WebSocket连接请求: client_id={client_id}")
+        logger.bind(name="app.api.routes.websocket_manager").info(
+            f"🔄 WebSocket连接请求: client_id={client_id}"
+        )
         
         # 建立连接
         await websocket_manager.connect(websocket, client_id, db)
@@ -45,16 +47,22 @@ async def websocket_endpoint(
                 data = await websocket.receive_text()
                 message = json.loads(data)
                 
-                logger.info(f"📥 收到客户端消息: client_id={client_id}, type={message.get('type')}")
+                logger.bind(name="app.api.routes.websocket_manager").info(
+                    f"📥 收到客户端消息: client_id={client_id}, type={message.get('type')}"
+                )
                 
                 # 处理不同类型的消息
                 await handle_client_message(client_id, message, db)
                 
             except WebSocketDisconnect:
-                logger.info(f"🔌 客户端主动断开: client_id={client_id}")
+                logger.bind(name="app.api.routes.websocket_manager").info(
+                    f"🔌 客户端主动断开: client_id={client_id}"
+                )
                 break
             except json.JSONDecodeError:
-                logger.error(f"❌ 消息格式错误: client_id={client_id}")
+                logger.bind(name="app.api.routes.websocket_manager").error(
+                    f"❌ 消息格式错误: client_id={client_id}"
+                )
                 await websocket_manager.send_error(
                     client_id, 
                     "MSG_001", 
@@ -62,7 +70,9 @@ async def websocket_endpoint(
                     "JSON解析失败"
                 )
             except Exception as e:
-                logger.error(f"❌ 处理消息异常: client_id={client_id}, error={e}")
+                logger.bind(name="app.api.routes.websocket_manager").error(
+                    f"❌ 处理消息异常: client_id={client_id}, error={e}"
+                )
                 await websocket_manager.send_error(
                     client_id, 
                     "MSG_003", 
@@ -71,7 +81,9 @@ async def websocket_endpoint(
                 )
     
     except Exception as e:
-        logger.error(f"❌ WebSocket连接异常: client_id={client_id}, error={e}")
+        logger.bind(name="app.api.routes.websocket_manager").error(
+            f"❌ WebSocket连接异常: client_id={client_id}, error={e}"
+        )
     
     finally:
         # 断开连接清理
@@ -101,10 +113,14 @@ async def handle_client_message(client_id: str, message: dict, db: AsyncSession)
 
         elif message_type == "ack":
             # 处理确认消息（暂时简单记录）
-            logger.info(f"📝 收到确认消息: client_id={client_id}, original_id={message_data.get('originalMessageId')}")
+            logger.bind(name="app.api.routes.websocket_manager").info(
+                f"📝 收到确认消息: client_id={client_id}, original_id={message_data.get('originalMessageId')}"
+            )
         
         else:
-            logger.warning(f"⚠️ 未知消息类型: client_id={client_id}, type={message_type}")
+            logger.bind(name="app.api.routes.websocket_manager").warning(
+                f"⚠️ 未知消息类型: client_id={client_id}, type={message_type}"
+            )
             await websocket_manager.send_error(
                 client_id,
                 "MSG_002",
@@ -113,7 +129,9 @@ async def handle_client_message(client_id: str, message: dict, db: AsyncSession)
             )
     
     except Exception as e:
-        logger.error(f"❌ 处理客户端消息异常: {e}")
+        logger.bind(name="app.api.routes.websocket_manager").error(
+            f"❌ 处理客户端消息异常: {e}"
+        )
         await websocket_manager.send_error(
             client_id,
             "MSG_003",
@@ -131,10 +149,14 @@ async def handle_heartbeat(client_id: str, data: dict):
         # 回复心跳
         await websocket_manager.send_heartbeat(client_id)
         
-        logger.debug(f"💓 心跳处理: client_id={client_id}")
+        logger.bind(name="app.api.routes.websocket_manager").debug(
+            f"💓 心跳处理: client_id={client_id}"
+        )
         
     except Exception as e:
-        logger.error(f"❌ 心跳处理异常: {e}")
+        logger.bind(name="app.api.routes.websocket_manager").error(
+            f"❌ 心跳处理异常: {e}"
+        )
 
 
 async def handle_ai_recommend_request(client_id: str, data: dict, db: AsyncSession):
@@ -150,7 +172,7 @@ async def handle_ai_recommend_request(client_id: str, data: dict, db: AsyncSessi
 
         # 查找最近的HIS推送记录（以时间倒序取最新，避免时区造成的created_at筛选失效）
         # 记录请求参数
-        logger.info(
+        logger.bind(name="app.api.routes.websocket_manager").info(
             f"[AI-REQ] 查找HIS日志: pat_no={patient_id}, adm_id={visit_id}, doctor_id={doctor_id}"
         )
 
@@ -185,7 +207,9 @@ async def handle_ai_recommend_request(client_id: str, data: dict, db: AsyncSessi
         # 最后兜底：仅按 医生ID 近5分钟 取最新一条
         if not his_log:
             from datetime import datetime, timedelta
-            logger.warning(f"[AI-REQ] 放宽到doctor_id近5分钟: doctor_id={doctor_id}")
+            logger.bind(name="app.api.routes.websocket_manager").warning(
+                f"[AI-REQ] 放宽到doctor_id近5分钟: doctor_id={doctor_id}"
+            )
             q3 = (
                 select(HisPushLog)
                 .where(
@@ -209,7 +233,7 @@ async def handle_ai_recommend_request(client_id: str, data: dict, db: AsyncSessi
             )
             return
 
-        logger.info(
+        logger.bind(name="app.api.routes.websocket_manager").info(
             f"[AI-REQ] 命中HIS日志: id={his_log.id}, pat_no={his_log.pat_no}, adm_id={his_log.adm_id}, created_at={his_log.created_at}"
         )
 
@@ -250,7 +274,9 @@ async def handle_ai_recommend_request(client_id: str, data: dict, db: AsyncSessi
         )
 
     except Exception as e:
-        logger.error(f"❌ 处理AI推荐请求异常: {e}")
+        logger.bind(name="app.api.routes.websocket_manager").error(
+            f"❌ 处理AI推荐请求异常: {e}"
+        )
         await websocket_manager.send_error(client_id, "SRV_500", "服务器内部错误", str(e))
 
 

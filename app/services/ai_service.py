@@ -42,7 +42,7 @@ class AiService:
         start_time = time.time()
         
         try:
-            logger.info(f"🤖 开始调用AI服务: request_id={request_id}")
+            logger.bind(name="app.services.ai_service").info(f"🤖 开始调用AI服务: request_id={request_id}")
             
             # 1. 构造AI服务请求参数
             ai_request = self._build_ai_request(cdss_message, request_id)
@@ -65,13 +65,17 @@ class AiService:
                 status="success"
             )
             
-            logger.info(f"✅ AI推荐调用成功: request_id={request_id}, count={len(recommendations)}, time={processing_time}s")
+            logger.bind(name="app.services.ai_service").info(
+                f"✅ AI推荐调用成功: request_id={request_id}, count={len(recommendations)}, time={processing_time}s"
+            )
             
             return recommendations
             
         except Exception as e:
             processing_time = round(time.time() - start_time, 2)
-            logger.error(f"❌ AI推荐调用失败: request_id={request_id}, error={e}")
+            logger.bind(name="app.services.ai_service").error(
+                f"❌ AI推荐调用失败: request_id={request_id}, error={e}"
+            )
             
             # 保存失败日志
             try:
@@ -109,7 +113,9 @@ class AiService:
             ai_request = self._build_ai_request(cdss_message, request_id)
 
             url = f"{self.base_url}{self.endpoint}"
-            logger.info(f"🤖 [AI-STREAM] 请求流式AI: url={url}, request_id={request_id}")
+            logger.bind(name="app.services.ai_service").info(
+                f"🤖 [AI-STREAM] 请求流式AI: url={url}, request_id={request_id}"
+            )
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 async with client.stream(
                     "POST",
@@ -123,7 +129,9 @@ class AiService:
                         "Content-Type": "application/json",
                     }
                 ) as response:
-                    logger.info(f"🤖 [AI-STREAM] 响应: status={response.status_code}, headers={dict(response.headers)}")
+                    logger.bind(name="app.services.ai_service").info(
+                        f"🤖 [AI-STREAM] 响应: status={response.status_code}, headers={dict(response.headers)}"
+                    )
                     response.raise_for_status()
 
                     content_type = response.headers.get("content-type", "").lower()
@@ -136,7 +144,9 @@ class AiService:
                             j = json.loads(raw.decode(errors="ignore"))
                         except Exception:
                             j = None
-                        logger.info(f"🤖 [AI-STREAM][JSON] body(<=500): {raw[:500]!r}")
+                        logger.bind(name="app.services.ai_service").info(
+                            f"🤖 [AI-STREAM][JSON] body(<=500): {raw[:500]!r}"
+                        )
                         if isinstance(j, dict):
                             # 若返回错误码，立即推送错误并结束（避免前端长时间等待）
                             if isinstance(j.get("code"), int) and j.get("code") != 0:
@@ -180,7 +190,9 @@ class AiService:
                         async for line in response.aiter_lines():
                             # 诊断日志（限制长度，避免刷屏）
                             if line is not None:
-                                logger.info(f"🤖 [AI-STREAM] line: {str(line)[:200]}")
+                                logger.bind(name="app.services.ai_service").info(
+                                    f"🤖 [AI-STREAM] line: {str(line)[:200]}"
+                                )
                             if not line:
                                 continue
                             data_line = line.lstrip()
@@ -376,15 +388,19 @@ class AiService:
                     recommendations = await self._parse_stream_response(response)
                     
                     return recommendations
-                    
+
             except httpx.TimeoutException:
-                logger.error(f"❌ AI服务调用超时: url={url}")
+                logger.bind(name="app.services.ai_service").error(
+                    f"❌ AI服务调用超时: url={url}"
+                )
                 raise Exception("AI服务调用超时")
             except httpx.HTTPStatusError as e:
-                logger.error(f"❌ AI服务HTTP错误: status={e.response.status_code}, url={url}")
+                logger.bind(name="app.services.ai_service").error(
+                    f"❌ AI服务HTTP错误: status={e.response.status_code}, url={url}"
+                )
                 raise Exception(f"AI服务HTTP错误: {e.response.status_code}")
             except Exception as e:
-                logger.error(f"❌ AI服务调用异常: {e}")
+                logger.bind(name="app.services.ai_service").error(f"❌ AI服务调用异常: {e}")
                 raise
     
     async def _parse_stream_response(self, response) -> List[AiRecommendationResult]:
@@ -444,7 +460,7 @@ class AiService:
             return recommendations
 
         except Exception as e:
-            logger.error(f"❌ 解析流式响应异常: {e}")
+            logger.bind(name="app.services.ai_service").error(f"❌ 解析流式响应异常: {e}")
             raise Exception(f"解析AI服务响应失败: {e}")
     
     async def _save_ai_recommendation_log(
@@ -485,11 +501,13 @@ class AiService:
             await self.db.commit()
             await self.db.refresh(ai_log)
             
-            logger.info(f"💾 AI推荐日志已保存: id={ai_log.id}, request_id={request_id}")
+            logger.bind(name="app.services.ai_service").info(
+                f"💾 AI推荐日志已保存: id={ai_log.id}, request_id={request_id}"
+            )
             
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"❌ 保存AI推荐日志失败: {e}")
+            logger.bind(name="app.services.ai_service").error(f"❌ 保存AI推荐日志失败: {e}")
     
     async def get_cached_recommendation(self, patient_id: str, visit_id: str) -> Optional[List[AiRecommendationResult]]:
         """获取缓存的推荐结果（5分钟内的相同请求）"""
@@ -514,12 +532,13 @@ class AiService:
                 # 解析缓存的推荐结果
                 recommendations_data = json.loads(latest_log.recommendations)
                 recommendations = [AiRecommendationResult(**data) for data in recommendations_data]
-                
-                logger.info(f"📋 使用缓存推荐: patient_id={patient_id}, visit_id={visit_id}")
+                logger.bind(name="app.services.ai_service").info(
+                    f"📋 使用缓存推荐: patient_id={patient_id}, visit_id={visit_id}"
+                )
                 return recommendations
-            
+
             return None
             
         except Exception as e:
-            logger.error(f"❌ 获取缓存推荐失败: {e}")
+            logger.bind(name="app.services.ai_service").error(f"❌ 获取缓存推荐失败: {e}")
             return None

@@ -45,11 +45,15 @@ async def receive_his_push(
     message_id = f"his_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}"
     
     try:
-        logger.info(f"🏥 收到HIS推送: message_id={message_id}, pat_no={cdss_message.patNo}")
+        logger.bind(name="app.api.routes.his_push").info(
+            f"🏥 收到HIS推送: message_id={message_id}, pat_no={cdss_message.patNo}"
+        )
         
         # 1. 验证请求头
         if service_id != settings.HIS_SERVICE_ID:
-            logger.error(f"❌ service_id不匹配: 期望={settings.HIS_SERVICE_ID}, 实际={service_id}")
+            logger.bind(name="app.api.routes.his_push").error(
+                f"❌ service_id不匹配: 期望={settings.HIS_SERVICE_ID}, 实际={service_id}"
+            )
             raise HTTPException(
                 status_code=400,
                 detail={"code": 1001, "message": "service_id不匹配", "error": f"期望{settings.HIS_SERVICE_ID}"}
@@ -57,7 +61,9 @@ async def receive_his_push(
         
         # 2. 验证场景类型
         if cdss_message.sceneType != settings.HIS_SCENE_TYPE:
-            logger.error(f"❌ sceneType不匹配: 期望={settings.HIS_SCENE_TYPE}, 实际={cdss_message.sceneType}")
+            logger.bind(name="app.api.routes.his_push").error(
+                f"❌ sceneType不匹配: 期望={settings.HIS_SCENE_TYPE}, 实际={cdss_message.sceneType}"
+            )
             raise HTTPException(
                 status_code=400,
                 detail={"code": 1002, "message": "sceneType不匹配", "error": f"期望{settings.HIS_SCENE_TYPE}"}
@@ -67,7 +73,7 @@ async def receive_his_push(
         required_fields = ['systemId', 'patNo', 'patName', 'admId', 'visitType']
         for field in required_fields:
             if not getattr(cdss_message, field, None):
-                logger.error(f"❌ 必填字段缺失: {field}")
+                logger.bind(name="app.api.routes.his_push").error(f"❌ 必填字段缺失: {field}")
                 raise HTTPException(
                     status_code=400,
                     detail={"code": 1003, "message": "必填字段缺失", "error": f"{field}字段不能为空"}
@@ -78,7 +84,7 @@ async def receive_his_push(
         required_item_fields = ['patientAge', 'patientSex', 'clinicInfo', 'abstractHistory']
         for field in required_item_fields:
             if not getattr(item_data, field, None):
-                logger.error(f"❌ itemData字段缺失: {field}")
+                logger.bind(name="app.api.routes.his_push").error(f"❌ itemData字段缺失: {field}")
                 raise HTTPException(
                     status_code=400,
                     detail={"code": 1004, "message": "itemData格式错误", "error": f"{field}字段不能为空"}
@@ -95,7 +101,9 @@ async def receive_his_push(
         )
         
         if not client_id:
-            logger.warning(f"⚠️ 未找到关联客户端: userIP={cdss_message.userIP}, userCode={cdss_message.userCode}")
+            logger.bind(name="app.api.routes.his_push").warning(
+                f"⚠️ 未找到关联客户端: userIP={cdss_message.userIP}, userCode={cdss_message.userCode}"
+            )
             # 不抛出异常，仍然记录日志，但标记为客户端未找到
         
         # 7. 保存HIS推送记录
@@ -119,9 +127,13 @@ async def receive_his_push(
         if client_id:
             try:
                 await websocket_service.push_patient_data(client_id, cdss_message, message_id)
-                logger.info(f"✅ WebSocket推送成功: client_id={client_id}")
+                logger.bind(name="app.api.routes.his_push").info(
+                    f"✅ WebSocket推送成功: client_id={client_id}"
+                )
             except Exception as ws_error:
-                logger.error(f"❌ WebSocket推送失败: {ws_error}")
+                logger.bind(name="app.api.routes.his_push").error(
+                    f"❌ WebSocket推送失败: {ws_error}"
+                )
                 # 更新推送状态
                 await his_service.update_push_status(his_log.id, "websocket_failed", str(ws_error))
         
@@ -132,7 +144,9 @@ async def receive_his_push(
             processStatus="received"
         )
         
-        logger.info(f"✅ HIS推送处理完成: message_id={message_id}")
+        logger.bind(name="app.api.routes.his_push").info(
+            f"✅ HIS推送处理完成: message_id={message_id}"
+        )
         
         return HisPushResponse(
             code=200,
@@ -144,7 +158,7 @@ async def receive_his_push(
         # 重新抛出HTTP异常
         raise
     except Exception as e:
-        logger.error(f"❌ HIS推送处理异常: {e}")
+        logger.bind(name="app.api.routes.his_push").error(f"❌ HIS推送处理异常: {e}")
         
         # 记录异常日志
         try:

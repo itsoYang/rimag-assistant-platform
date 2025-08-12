@@ -61,7 +61,9 @@ class WebSocketManager:
             # 更新数据库连接记录
             await self._update_client_connection(db, client_id, "connected", client_ip, doctor_id)
             
-            logger.info(f"🔗 WebSocket连接建立: client_id={client_id}, ip={client_ip}")
+            logger.bind(name="app.services.websocket_service").info(
+                f"🔗 WebSocket连接建立: client_id={client_id}, ip={client_ip}"
+            )
             
             # 发送连接确认消息
             await self.send_heartbeat(client_id)
@@ -89,16 +91,22 @@ class WebSocketManager:
                 if client_id in self.heartbeat_tasks:
                     del self.heartbeat_tasks[client_id]
                 
-                logger.info(f"🔌 WebSocket连接断开: client_id={client_id}, reason={reason}")
+                logger.bind(name="app.services.websocket_service").info(
+                    f"🔌 WebSocket连接断开: client_id={client_id}, reason={reason}"
+                )
         
         except Exception as e:
-            logger.error(f"❌ 断开WebSocket连接异常: {e}")
+            logger.bind(name="app.services.websocket_service").error(
+                f"❌ 断开WebSocket连接异常: {e}"
+            )
     
     async def send_message(self, client_id: str, message_type: MessageType, data: dict) -> bool:
         """发送消息给指定客户端"""
         try:
             if client_id not in self.active_connections:
-                logger.warning(f"⚠️ 客户端未连接: client_id={client_id}")
+                logger.bind(name="app.services.websocket_service").warning(
+                    f"⚠️ 客户端未连接: client_id={client_id}"
+                )
                 return False
             
             websocket = self.active_connections[client_id]
@@ -114,11 +122,15 @@ class WebSocketManager:
             # 发送消息
             await websocket.send_text(json.dumps(message, ensure_ascii=False))
             
-            logger.info(f"📤 消息发送成功: client_id={client_id}, type={message_type.value}")
+            logger.bind(name="app.services.websocket_service").info(
+                f"📤 消息发送成功: client_id={client_id}, type={message_type.value}"
+            )
             return True
             
         except Exception as e:
-            logger.error(f"❌ 发送消息失败: client_id={client_id}, error={e}")
+            logger.bind(name="app.services.websocket_service").error(
+                f"❌ 发送消息失败: client_id={client_id}, error={e}"
+            )
             # 连接可能已断开，移除连接
             await self.disconnect(client_id, "send_message_failed")
             return False
@@ -126,8 +138,8 @@ class WebSocketManager:
     async def send_heartbeat(self, client_id: str) -> bool:
         """发送心跳消息"""
         return await self.send_message(
-            client_id, 
-            MessageType.HEARTBEAT, 
+            client_id,
+            MessageType.HEARTBEAT,
             {"status": "alive"}
         )
     
@@ -139,7 +151,7 @@ class WebSocketManager:
             {
                 "errorCode": error_code,
                 "errorMessage": error_message,
-                "details": details
+                "details": details,
             }
         )
     
@@ -193,7 +205,9 @@ class WebSocketManager:
             
         except Exception as e:
             await db.rollback()
-            logger.error(f"❌ 更新客户端连接记录失败: {e}")
+            logger.bind(name="app.services.websocket_service").error(
+                f"❌ 更新客户端连接记录失败: {e}"
+            )
 
 
 # 全局WebSocket管理器实例
@@ -234,14 +248,20 @@ class WebSocketService:
             )
             
             if success:
-                logger.info(f"✅ 患者数据推送成功: client_id={client_id}, message_id={message_id}")
+                logger.bind(name="app.services.websocket_service").info(
+                    f"✅ 患者数据推送成功: client_id={client_id}, message_id={message_id}"
+                )
             else:
-                logger.error(f"❌ 患者数据推送失败: client_id={client_id}, message_id={message_id}")
+                logger.bind(name="app.services.websocket_service").error(
+                    f"❌ 患者数据推送失败: client_id={client_id}, message_id={message_id}"
+                )
             
             return success
             
         except Exception as e:
-            logger.error(f"❌ 推送患者数据异常: {e}")
+            logger.bind(name="app.services.websocket_service").error(
+                f"❌ 推送患者数据异常: {e}"
+            )
             return False
     
     async def push_ai_recommendation(
@@ -278,12 +298,18 @@ class WebSocketService:
             )
             
             if success:
-                logger.info(f"✅ AI推荐推送成功: client_id={client_id}, request_id={request_id}")
+                logger.bind(name="app.services.websocket_service").info(
+                    f"✅ AI推荐推送成功: client_id={client_id}, request_id={request_id}"
+                )
             else:
-                logger.error(f"❌ AI推荐推送失败: client_id={client_id}, request_id={request_id}")
+                logger.bind(name="app.services.websocket_service").error(
+                    f"❌ AI推荐推送失败: client_id={client_id}, request_id={request_id}"
+                )
             
             return success
             
         except Exception as e:
-            logger.error(f"❌ 推送AI推荐异常: {e}")
+            logger.bind(name="app.services.websocket_service").error(
+                f"❌ 推送AI推荐异常: {e}"
+            )
             return False
