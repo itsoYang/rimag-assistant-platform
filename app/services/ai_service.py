@@ -14,8 +14,15 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.schemas.ai_schemas import PatientInfoRequest, AiRecommendationResult
 from app.schemas.his_schemas import CDSSMessage
-from app.models.database_models import AiRecommendationLog, SystemLog
+from app.models.database_models import (
+    AiRecommendationLog,
+    SystemLog,
+    ServiceCall,
+    AiSession,
+    AiSessionRecord,
+)
 from app.services.websocket_service import WebSocketService
+from app.services.trace_service import create_trace, create_span, finish_span
 
 
 class AiService:
@@ -110,6 +117,9 @@ class AiService:
         recommendations_dict: Dict[str, Dict[str, str]] = {}
 
         try:
+            # Trace & Span 开始
+            trace_id = await create_trace(self.db, request_id=request_id, client_id=client_id)
+            span_ai = await create_span(self.db, trace_id, name="ai_stream_call", service_name="Assistant-Server", api_path=self.endpoint)
             ai_request = self._build_ai_request(cdss_message, request_id)
 
             url = f"{self.base_url}{self.endpoint}"
@@ -306,6 +316,34 @@ class AiService:
             except Exception:
                 pass
 
+            # 会话聚合落库
+            try:
+                session_id = await self._ensure_ai_session(
+                    patient_id=cdss_message.patNo,
+                    visit_id=cdss_message.admId,
+                    doctor_id=cdss_message.userCode,
+                )
+                await self._append_ai_session_record(session_id=session_id, request_id=request_id, summary=None)
+            except Exception:
+                pass
+
+            # 记录服务调用成功
+            try:
+                await self._save_service_call(
+                    request_id=request_id,
+                    client_id=client_id,
+                    status="success",
+                    duration_ms=int(total_time * 1000),
+                )
+            except Exception:
+                pass
+
+            # 收尾 Trace/Span
+            try:
+                await finish_span(self.db, span_ai, status="SUCCESS", response={"count": len(final_list)})
+            except Exception:
+                pass
+
             return final_list
 
         except Exception as e:
@@ -337,6 +375,37 @@ class AiService:
                     status="failed",
                     error_message=str(e),
                 )
+            except Exception:
+                pass
+
+            # 会话聚合落库（失败也记录到会话）
+            try:
+                session_id = await self._ensure_ai_session(
+                    patient_id=cdss_message.patNo,
+                    visit_id=cdss_message.admId,
+                    doctor_id=cdss_message.userCode,
+                )
+                await self._append_ai_session_record(session_id=session_id, request_id=request_id, summary=str(e))
+            except Exception:
+                pass
+
+            # 记录服务调用失败
+            try:
+                await self._save_service_call(
+                    request_id=request_id,
+                    client_id=client_id,
+                    status="failed",
+                    duration_ms=int(elapsed * 1000),
+                    error_message=str(e),
+                )
+            except Exception:
+                pass
+
+            # 收尾 Trace/Span（失败）
+            try:
+                # 若上文创建 span_ai 失败，忽略
+                if 'span_ai' in locals():
+                    await finish_span(self.db, span_ai, status="FAILED", error_message=str(e))
             except Exception:
                 pass
 
@@ -542,3 +611,64 @@ class AiService:
         except Exception as e:
             logger.bind(name="app.services.ai_service").error(f"❌ 获取缓存推荐失败: {e}")
             return None
+
+    async def _save_service_call(
+        self,
+        request_id: str,
+        client_id: str,
+        status: str,
+        duration_ms: int | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        """保存服务调用明细（用于统计）"""
+        try:
+            call = ServiceCall(
+                request_id=request_id,
+                client_id=client_id,
+                status=status,
+                duration_ms=duration_ms,
+                error_message=error_message,
+            )
+            self.db.add(call)
+            await self.db.commit()
+        except Exception as e:
+            await self.db.rollback()
+            logger.bind(name="app.services.ai_service").error(f"❌ 保存服务调用明细失败: {e}")
+
+    async def _ensure_ai_session(self, patient_id: str, visit_id: str | None, doctor_id: str | None) -> str:
+        """确保存在会话，返回会话ID。session_key = patNo#YYYYMMDD"""
+        from datetime import datetime
+        session_key = f"{patient_id}#{datetime.now().strftime('%Y%m%d')}"
+        try:
+            from sqlalchemy import select
+            existing = (
+                await self.db.execute(
+                    select(AiSession).where(AiSession.session_key == session_key)
+                )
+            ).scalar_one_or_none()
+            if existing:
+                return existing.id  # type: ignore
+            row = AiSession(
+                session_key=session_key,
+                patient_id=patient_id,
+                visit_id=visit_id,
+                doctor_id=doctor_id,
+            )
+            self.db.add(row)
+            await self.db.commit()
+            await self.db.refresh(row)
+            return row.id  # type: ignore
+        except Exception as e:
+            await self.db.rollback()
+            logger.bind(name="app.services.ai_service").error(f"❌ 确保会话失败: {e}")
+            raise
+
+    async def _append_ai_session_record(self, session_id: str, request_id: str, summary: str | None) -> None:
+        """追加会话明细记录"""
+        try:
+            rec = AiSessionRecord(session_id=session_id, request_id=request_id, summary=summary)
+            self.db.add(rec)
+            await self.db.commit()
+        except Exception as e:
+            await self.db.rollback()
+            logger.bind(name="app.services.ai_service").error(f"❌ 追加会话记录失败: {e}")

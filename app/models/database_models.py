@@ -3,7 +3,7 @@
 按照MVP阶段实施方案定义的表结构
 """
 
-from sqlalchemy import Column, String, Text, DateTime, Integer
+from sqlalchemy import Column, String, Text, DateTime, Integer, Boolean, Date
 from sqlalchemy.sql.sqltypes import Numeric
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -22,21 +22,44 @@ except Exception:  # 回退：严格环境需要安装 uuid6；开发期可临�
         return str(uuid4())
 
 
-class ClientConnection(Base):
-    """客户端连接表"""
-    __tablename__ = "client_connections"
-    
-    id = Column(String(36), primary_key=True, default=uuid7_str, nullable=False)
-    client_id = Column(String(50), unique=True, nullable=False, comment="客户端唯一标识")
-    doctor_id = Column(String(50), nullable=False, comment="医生ID")
-    doctor_name = Column(String(100), comment="医生姓名")
-    connection_status = Column(String(20), default='connected', comment="连接状态")
-    websocket_id = Column(String(100), comment="WebSocket连接ID")
-    ip_address = Column(String(45), comment="IP地址")
-    connected_at = Column(DateTime, default=func.current_timestamp(), comment="连接时间")
-    last_heartbeat = Column(DateTime, default=func.current_timestamp(), comment="最后心跳时间")
-    disconnected_at = Column(DateTime, comment="断开时间")
+"""
+移除旧版 client_connections/Service/ServiceEndpoint/角色等模型，全面对齐 docs/12-数据库表设计.md
+"""
 
+
+class ClientInfo(Base):
+    """客户端信息表（与 docs/12-数据库表设计.md 对齐）
+
+    说明：不使用数据库外键约束，引用完整性由应用层保证。
+    """
+    __tablename__ = "client_info"
+
+    client_id = Column(String(36), primary_key=True, default=uuid7_str, nullable=False)
+    hospital_id = Column(String(64), nullable=True)
+    department = Column(String(50), nullable=True)
+    ip_address = Column(String(45), nullable=True)
+    client_version = Column(String(20), nullable=True)
+    enabled = Column(Boolean, nullable=False, default=True)
+    connected = Column(Boolean, nullable=False, default=False)
+    connected_at = Column(DateTime, nullable=True)
+    last_active = Column(DateTime, nullable=True)
+    create_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
+    update_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
+
+
+class SysDict(Base):
+    """系统字典表（docs/12-数据库表设计.md）"""
+    __tablename__ = "sys_dict"
+
+    id = Column(String(36), primary_key=True, nullable=False)
+    dict_type = Column(String(50), nullable=False)
+    dict_key = Column(String(50), nullable=False)
+    dict_value = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    sort_order = Column(Integer, nullable=True)
+    enabled = Column(Boolean, nullable=False, default=True)
+    create_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
+    update_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
 
 class HisPushLog(Base):
     """HIS推送记录表（CDSS消息框架）"""
@@ -106,3 +129,155 @@ class SystemLog(Base):
     message = Column(Text, nullable=False, comment="日志消息")
     details = Column(Text, comment="JSON格式的详细信息")
     created_at = Column(DateTime, default=func.current_timestamp(), comment="创建时间")
+
+
+# ========== 以下为管理端增强阶段新增的数据模型 ==========
+
+
+class Service(Base):
+    """服务定义表（对齐 docs）"""
+    __tablename__ = "services"
+
+    id = Column(String(36), primary_key=True, default=uuid7_str, nullable=False)
+    name = Column(String(100), nullable=False)
+    type = Column(String(20), nullable=False)
+    base_path = Column(String(200), nullable=False)
+    protocol = Column(String(10), nullable=False)
+    enabled = Column(Boolean, nullable=False, default=True)
+    description = Column(Text, nullable=True)
+    create_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
+    update_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
+
+
+class ServiceInterface(Base):
+    """接口注册表（对齐 docs）"""
+    __tablename__ = "service_interface"
+
+    id = Column(String(36), primary_key=True, default=uuid7_str, nullable=False)
+    service_id = Column(String(36), nullable=False)
+    name = Column(String(100), nullable=False)
+    path = Column(String(200), nullable=False)
+    method = Column(String(10), nullable=False)
+    target_url = Column(String(500), nullable=True)
+    timeout_seconds = Column(Integer, nullable=False, default=5)
+    enabled = Column(Boolean, nullable=False, default=True)
+    request_sample = Column(Text, nullable=True)
+    response_schema = Column(Text, nullable=True)
+    create_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
+    update_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
+
+
+class RoleInfo(Base):
+    """权限组表（对齐 docs）"""
+    __tablename__ = "role_info"
+
+    role_id = Column(String(36), primary_key=True, default=uuid7_str, nullable=False)
+    role_name = Column(String(50), nullable=False)
+    description = Column(Text, nullable=True)
+    type = Column(String(20), nullable=True, default='DEPT')
+    enabled = Column(Boolean, nullable=False, default=True)
+    create_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
+    update_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
+
+
+class RoleServiceAcl(Base):
+    """权限组-服务授权（对齐 docs，授权到服务）"""
+    __tablename__ = "role_service_acl"
+
+    id = Column(String(36), primary_key=True, default=uuid7_str, nullable=False)
+    role_id = Column(String(36), nullable=False)
+    service_id = Column(String(36), nullable=False)
+    create_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
+
+
+class ClientRoleBinding(Base):
+    """客户端-权限组绑定（对齐 docs）"""
+    __tablename__ = "client_role_binding"
+
+    id = Column(String(36), primary_key=True, default=uuid7_str, nullable=False)
+    client_id = Column(String(36), nullable=False)
+    role_id = Column(String(36), nullable=False)
+    create_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
+
+
+class ServiceCall(Base):
+    """服务调用明细（对齐 docs）"""
+    __tablename__ = "service_calls"
+
+    id = Column(String(36), primary_key=True, default=uuid7_str, nullable=False)
+    client_id = Column(String(36), nullable=False)
+    service_id = Column(String(36), nullable=False)
+    started_at = Column(DateTime, nullable=False, default=func.current_timestamp())
+    ended_at = Column(DateTime, nullable=True)
+    status = Column(String(20), nullable=False)
+    latency_ms = Column(Integer, nullable=True)
+    req_summary = Column(Text, nullable=True)
+    resp_summary = Column(Text, nullable=True)
+    create_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
+
+
+class AiSession(Base):
+    """会话主表（对齐 docs）"""
+    __tablename__ = "ai_session"
+
+    id = Column(String(36), primary_key=True, default=uuid7_str, nullable=False)
+    session_key = Column(String(80), nullable=False)
+    patient_id = Column(String(64), nullable=False)
+    client_id = Column(String(36), nullable=False)
+    hospital_id = Column(String(64), nullable=True)
+    session_date = Column(Date, nullable=False)
+    create_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
+    update_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
+    status = Column(String(20), nullable=False, default='ACTIVE')
+
+
+class AiSessionRecord(Base):
+    """会话记录表（对齐 docs）"""
+    __tablename__ = "ai_session_record"
+
+    record_id = Column(String(36), primary_key=True, default=uuid7_str, nullable=False)
+    session_id = Column(String(36), nullable=False)
+    trace_id = Column(String(36), nullable=True)
+    service_name = Column(String(50), nullable=False)
+    request_time = Column(DateTime, nullable=False, default=func.current_timestamp())
+    request_data = Column(Text, nullable=True)
+    response_data = Column(Text, nullable=True)
+    duration_ms = Column(Integer, nullable=True)
+    # SQLAlchemy Declarative 保留名 'metadata'，需更换属性名，同时列名仍为 'metadata'
+    meta_data = Column("metadata", Text, nullable=True)
+    create_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
+
+
+class TraceRecord(Base):
+    """调用链主表（对齐 docs）"""
+    __tablename__ = "trace_record"
+
+    trace_id = Column(String(36), primary_key=True, default=uuid7_str, nullable=False)
+    patient_id = Column(String(64), nullable=True)
+    hospital_id = Column(String(64), nullable=True)
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime, nullable=True)
+    status = Column(String(20), nullable=False)
+    total_duration_ms = Column(Integer, nullable=False)
+    create_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
+
+
+class SpanRecord(Base):
+    """调用片段表（对齐 docs）"""
+    __tablename__ = "span_record"
+
+    span_id = Column(String(36), primary_key=True, default=uuid7_str, nullable=False)
+    trace_id = Column(String(36), nullable=False)
+    parent_span_id = Column(String(36), nullable=True)
+    service_name = Column(String(50), nullable=False)
+    span_name = Column(String(100), nullable=False)
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime, nullable=False)
+    duration_ms = Column(Integer, nullable=False)
+    status = Column(String(20), nullable=False)
+    request_data = Column(Text, nullable=True)
+    response_data = Column(Text, nullable=True)
+    error_message = Column(Text, nullable=True)
+    client_id = Column(String(36), nullable=True)
+    api_path = Column(String(200), nullable=True)
+    create_time = Column(DateTime, default=func.current_timestamp(), nullable=False)

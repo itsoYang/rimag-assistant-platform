@@ -10,7 +10,7 @@ import json
 from datetime import datetime
 from loguru import logger
 
-from app.models.database_models import HisPushLog, ClientConnection, SystemLog
+from app.models.database_models import HisPushLog, ClientInfo, SystemLog
 from app.schemas.his_schemas import CDSSMessage
 
 
@@ -26,22 +26,34 @@ class HisService:
         优先级1: userIP + userCode 精确匹配
         """
         try:
-            # 查询在线的客户端连接
-            query = select(ClientConnection).where(
+            # 查询在线且已启用的客户端（优先按 IP 匹配，其次按 client_id 后缀包含 user_code）
+            # 规则：client_id 格式约定为 client_{deptCode}_{userCode}
+            q = select(ClientInfo).where(
                 and_(
-                    ClientConnection.ip_address == user_ip,
-                    ClientConnection.doctor_id == user_code,
-                    ClientConnection.connection_status == 'connected'
+                    ClientInfo.ip_address == user_ip,
+                    ClientInfo.connected == True,  # noqa: E712
+                    ClientInfo.enabled == True,    # noqa: E712
                 )
-            )
-            
-            result = await self.db.execute(query)
-            client_conn = result.scalar_one_or_none()
-            
-            if client_conn:
-                logger.info(f"🎯 找到精确匹配客户端: client_id={client_conn.client_id}")
-                return client_conn.client_id
-            
+            ).order_by(ClientInfo.last_active.desc())
+
+            row = (await self.db.execute(q)).scalar_one_or_none()
+            if row:
+                logger.info(f"🎯 找到匹配客户端(按IP): client_id={row.client_id}")
+                return row.client_id
+
+            # 兜底：按 user_code 作为 client_id 后缀匹配
+            q2 = select(ClientInfo).where(
+                and_(
+                    ClientInfo.client_id.like(f"%{user_code}"),
+                    ClientInfo.connected == True,  # noqa: E712
+                    ClientInfo.enabled == True,    # noqa: E712
+                )
+            ).order_by(ClientInfo.last_active.desc())
+            row2 = (await self.db.execute(q2)).scalar_one_or_none()
+            if row2:
+                logger.info(f"🎯 找到匹配客户端(按user_code): client_id={row2.client_id}")
+                return row2.client_id
+
             logger.warning(f"⚠️ 未找到匹配客户端: userIP={user_ip}, userCode={user_code}")
             return None
             

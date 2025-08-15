@@ -12,7 +12,7 @@ from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 
-from app.models.database_models import ClientConnection, SystemLog
+from app.models.database_models import ClientInfo, SystemLog
 from app.schemas.his_schemas import CDSSMessage
 from app.schemas.websocket_schemas import (
     MessageType, PatientDataMessage, PatientData, 
@@ -36,6 +36,16 @@ class WebSocketManager:
         try:
             await websocket.accept()
             
+            # 禁用校验：若已禁用则拒绝连接
+            try:
+                from sqlalchemy import select
+                existing = (await db.execute(select(ClientInfo).where(ClientInfo.client_id == client_id))).scalar_one_or_none()
+                if existing and (existing.enabled is False):
+                    await websocket.close()
+                    return
+            except Exception:
+                pass
+
             # 如果已存在连接，先断开旧连接
             if client_id in self.active_connections:
                 await self.disconnect(client_id, "new_connection_replace")
@@ -58,8 +68,8 @@ class WebSocketManager:
                 "last_heartbeat": datetime.now()
             }
             
-            # 更新数据库连接记录
-            await self._update_client_connection(db, client_id, "connected", client_ip, doctor_id)
+            # 更新客户端在线状态
+            await self._upsert_client_info(db, client_id, True, client_ip)
             
             logger.bind(name="app.services.websocket_service").info(
                 f"🔗 WebSocket连接建立: client_id={client_id}, ip={client_ip}"
@@ -172,41 +182,32 @@ class WebSocketManager:
         if client_id in self.client_info:
             self.client_info[client_id]["last_heartbeat"] = datetime.now()
     
-    async def _update_client_connection(self, db: AsyncSession, client_id: str, status: str, ip_address: str, doctor_id: str):
-        """更新数据库中的客户端连接记录"""
+    async def _upsert_client_info(self, db: AsyncSession, client_id: str, online: bool, ip_address: str | None):
+        """创建或更新 client_info 的在线状态"""
         try:
-            # 查找现有记录
-            query = select(ClientConnection).where(ClientConnection.client_id == client_id)
-            result = await db.execute(query)
-            existing = result.scalar_one_or_none()
-            
+            existing = (await db.execute(select(ClientInfo).where(ClientInfo.client_id == client_id))).scalar_one_or_none()
+            now = datetime.now()
             if existing:
-                # 更新现有记录
-                existing.connection_status = status
-                existing.last_heartbeat = datetime.now()
-                if status == "connected":
-                    existing.connected_at = datetime.now()
-                    existing.disconnected_at = None
-                elif status == "disconnected":
-                    existing.disconnected_at = datetime.now()
+                existing.connected = bool(online)
+                existing.last_active = now
+                if online:
+                    existing.connected_at = now
+                if ip_address:
+                    existing.ip_address = ip_address
             else:
-                # 创建新记录
-                new_connection = ClientConnection(
+                row = ClientInfo(
                     client_id=client_id,
-                    doctor_id=doctor_id,
-                    connection_status=status,
-                    ip_address=ip_address,
-                    connected_at=datetime.now() if status == "connected" else None,
-                    last_heartbeat=datetime.now()
+                    connected=bool(online),
+                    connected_at=now if online else None,
+                    last_active=now,
+                    ip_address=ip_address or None,
                 )
-                db.add(new_connection)
-            
+                db.add(row)
             await db.commit()
-            
         except Exception as e:
             await db.rollback()
             logger.bind(name="app.services.websocket_service").error(
-                f"❌ 更新客户端连接记录失败: {e}"
+                f"❌ 更新客户端信息失败: {e}"
             )
 
 

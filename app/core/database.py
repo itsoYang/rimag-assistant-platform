@@ -55,9 +55,10 @@ async def init_database():
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
         
-        # 创建所有表
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        # 是否自动建表：生产建议关闭，由 DDL/迁移脚本管理
+        if settings.AUTO_CREATE_TABLES:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
         
         logger.info("✅ 数据库初始化完成")
         
