@@ -51,8 +51,11 @@ class AiService:
         try:
             logger.bind(name="app.services.ai_service").info(f"🤖 开始调用AI服务: request_id={request_id}")
             
+            # 创建trace_id用于全链路追踪
+            trace_id = await create_trace(self.db, request_id=request_id, client_id=client_id)
+            
             # 1. 构造AI服务请求参数
-            ai_request = self._build_ai_request(cdss_message, request_id)
+            ai_request = self._build_ai_request(cdss_message, request_id, trace_id)
             
             # 2. 调用AI服务
             recommendations = await self._call_external_ai_service(ai_request)
@@ -120,7 +123,7 @@ class AiService:
             # Trace & Span 开始
             trace_id = await create_trace(self.db, request_id=request_id, client_id=client_id)
             span_ai = await create_span(self.db, trace_id, name="ai_stream_call", service_name="Assistant-Server", api_path=self.endpoint)
-            ai_request = self._build_ai_request(cdss_message, request_id)
+            ai_request = self._build_ai_request(cdss_message, request_id, trace_id)
 
             url = f"{self.base_url}{self.endpoint}"
             logger.bind(name="app.services.ai_service").info(
@@ -308,7 +311,7 @@ class AiService:
                     client_id=client_id,
                     cdss_message=cdss_message,
                     his_push_log_id=his_push_log_id,
-                    ai_request_data=self._build_ai_request(cdss_message, request_id).dict(),
+                    ai_request_data=self._build_ai_request(cdss_message, request_id, trace_id).dict(),
                     recommendations=final_list,
                     processing_time=total_time,
                     status="success",
@@ -411,7 +414,7 @@ class AiService:
 
             raise
     
-    def _build_ai_request(self, cdss_message: CDSSMessage, request_id: str) -> PatientInfoRequest:
+    def _build_ai_request(self, cdss_message: CDSSMessage, request_id: str, trace_id: Optional[str] = None) -> PatientInfoRequest:
         """构造AI服务请求参数"""
         
         return PatientInfoRequest(
@@ -426,6 +429,7 @@ class AiService:
             clinic_info=cdss_message.itemData.clinicInfo,  # 主诉信息
             recommend_count=settings.AI_DEFAULT_RECOMMEND_COUNT,  # 推荐数量
             diagnose_name=self._infer_diagnose_name(cdss_message),
+            trace_id=trace_id,  # 添加trace_id参数
         )
 
     def _infer_diagnose_name(self, cdss_message: CDSSMessage) -> str:
@@ -556,9 +560,9 @@ class AiService:
                 dept_code=cdss_message.deptCode,
                 message_id=getattr(cdss_message, 'message_id', None),
                 his_push_log_id=his_push_log_id,
-                ai_request_data=json.dumps(ai_request_data, ensure_ascii=False) if ai_request_data else None,
+                ai_request_data=ai_request_data,
                 ai_response_data=None,  # 暂不保存原始响应
-                recommendations=json.dumps([rec.dict() for rec in recommendations], ensure_ascii=False),
+                recommendations=[rec.dict() for rec in recommendations],
                 processing_time=processing_time,
                 ai_service_url=f"{self.base_url}{self.endpoint}",
                 session_id=cdss_message.admId,

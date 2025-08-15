@@ -3,7 +3,7 @@
 按照MVP阶段实施方案定义的表结构
 """
 
-from sqlalchemy import Column, String, Text, DateTime, Integer, Boolean, Date
+from sqlalchemy import Column, String, Text, DateTime, Integer, Boolean, Date, JSON
 from sqlalchemy.sql.sqltypes import Numeric
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -25,6 +25,24 @@ except Exception:  # 回退：严格环境需要安装 uuid6；开发期可临�
 """
 移除旧版 client_connections/Service/ServiceEndpoint/角色等模型，全面对齐 docs/12-数据库表设计.md
 """
+
+
+class User(Base):
+    """用户表（认证系统需要）"""
+    __tablename__ = "users"
+    
+    id = Column(String(36), primary_key=True, default=uuid7_str, nullable=False)
+    username = Column(String(50), unique=True, nullable=False)
+    email = Column(String(100), unique=True, nullable=True)
+    hashed_password = Column(String(255), nullable=False)
+    full_name = Column(String(100), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    is_superuser = Column(Boolean, default=False, nullable=False)
+    hospital_id = Column(String(64), nullable=True)
+    department = Column(String(50), nullable=True)
+    role = Column(String(20), default='USER', nullable=False)
+    create_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
+    update_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
 
 
 class ClientInfo(Base):
@@ -83,7 +101,7 @@ class HisPushLog(Base):
     user_name = Column(String(100), comment="用户名称")
     msg_time = Column(DateTime, comment="HIS消息时间")
     remark = Column(Text, comment="备注")
-    item_data = Column(Text, comment="场景数据（JSON格式）")
+    item_data = Column(JSON, comment="场景数据（JSON格式）")
     client_id = Column(String(50), comment="关联的客户端ID")
     push_status = Column(String(20), default='success', comment="推送状态")
     error_message = Column(Text, comment="错误信息")
@@ -104,9 +122,9 @@ class AiRecommendationLog(Base):
     message_id = Column(String(50), comment="关联CDSS消息ID")
     # 业务层面关联：不使用强外键
     his_push_log_id = Column(String(36), comment="关联HIS推送记录ID")
-    ai_request_data = Column(Text, nullable=False, comment="JSON格式的AI服务请求数据")
-    ai_response_data = Column(Text, comment="JSON格式的AI服务完整响应")
-    recommendations = Column(Text, comment="JSON格式的最终推荐结果")
+    ai_request_data = Column(JSON, nullable=False, comment="JSON格式的AI服务请求数据")
+    ai_response_data = Column(JSON, comment="JSON格式的AI服务完整响应")
+    recommendations = Column(JSON, comment="JSON格式的最终推荐结果")
     processing_time = Column(Numeric(5, 2), comment="处理时间（秒）")
     ai_service_url = Column(String(200), comment="AI服务地址")
     session_id = Column(String(50), comment="AI服务会话ID")
@@ -127,7 +145,7 @@ class SystemLog(Base):
     request_id = Column(String(50), comment="请求ID")
     push_id = Column(String(50), comment="推送ID")
     message = Column(Text, nullable=False, comment="日志消息")
-    details = Column(Text, comment="JSON格式的详细信息")
+    details = Column(JSON, comment="JSON格式的详细信息")
     created_at = Column(DateTime, default=func.current_timestamp(), comment="创建时间")
 
 
@@ -161,8 +179,8 @@ class ServiceInterface(Base):
     target_url = Column(String(500), nullable=True)
     timeout_seconds = Column(Integer, nullable=False, default=5)
     enabled = Column(Boolean, nullable=False, default=True)
-    request_sample = Column(Text, nullable=True)
-    response_schema = Column(Text, nullable=True)
+    request_sample = Column(JSON, nullable=True)
+    response_schema = Column(JSON, nullable=True)
     create_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
     update_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
 
@@ -211,8 +229,8 @@ class ServiceCall(Base):
     ended_at = Column(DateTime, nullable=True)
     status = Column(String(20), nullable=False)
     latency_ms = Column(Integer, nullable=True)
-    req_summary = Column(Text, nullable=True)
-    resp_summary = Column(Text, nullable=True)
+    req_summary = Column(JSON, nullable=True)
+    resp_summary = Column(JSON, nullable=True)
     create_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
 
 
@@ -240,11 +258,11 @@ class AiSessionRecord(Base):
     trace_id = Column(String(36), nullable=True)
     service_name = Column(String(50), nullable=False)
     request_time = Column(DateTime, nullable=False, default=func.current_timestamp())
-    request_data = Column(Text, nullable=True)
-    response_data = Column(Text, nullable=True)
+    request_data = Column(JSON, nullable=True)
+    response_data = Column(JSON, nullable=True)
     duration_ms = Column(Integer, nullable=True)
     # SQLAlchemy Declarative 保留名 'metadata'，需更换属性名，同时列名仍为 'metadata'
-    meta_data = Column("metadata", Text, nullable=True)
+    meta_data = Column("metadata", JSON, nullable=True)
     create_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
 
 
@@ -275,8 +293,8 @@ class SpanRecord(Base):
     end_time = Column(DateTime, nullable=False)
     duration_ms = Column(Integer, nullable=False)
     status = Column(String(20), nullable=False)
-    request_data = Column(Text, nullable=True)
-    response_data = Column(Text, nullable=True)
+    request_data = Column(JSON, nullable=True)
+    response_data = Column(JSON, nullable=True)
     error_message = Column(Text, nullable=True)
     client_id = Column(String(36), nullable=True)
     api_path = Column(String(200), nullable=True)

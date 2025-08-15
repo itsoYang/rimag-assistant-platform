@@ -80,3 +80,7 @@ class Settings(BaseSettings):
 
 # 全局设置实例
 settings = Settings()
+
+# 调试：输出当前加载的ALLOWED_ORIGINS配置
+from loguru import logger
+logger.info(f"🔧 当前ALLOWED_ORIGINS配置: {settings.ALLOWED_ORIGINS}")

@@ -96,7 +96,7 @@ class HisService:
                 user_name=cdss_message.userName,
                 msg_time=msg_time,
                 remark=cdss_message.remark,
-                item_data=json.dumps(cdss_message.itemData.dict(), ensure_ascii=False),
+                item_data=cdss_message.itemData.dict(),
                 client_id=client_id,
                 push_status="success" if client_id else "client_not_found",
                 error_message=None if client_id else "未找到关联客户端"
@@ -150,7 +150,7 @@ class HisService:
                 client_id=client_id,
                 request_id=request_id,
                 message=message,
-                details=json.dumps(details, ensure_ascii=False) if details else None
+                details=details
             )
             
             self.db.add(system_log)

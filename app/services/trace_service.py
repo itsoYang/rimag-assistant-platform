@@ -22,17 +22,19 @@ def generate_trace_id() -> str:
 
 async def create_trace(db: AsyncSession, request_id: Optional[str], client_id: Optional[str]) -> str:
     trace_id = generate_trace_id()
-    rec = TraceRecord(
-        trace_id=trace_id,
-        patient_id=None,
-        hospital_id=None,
-        start_time=_now(),
-        end_time=None,
-        status="SUCCESS",
-        total_duration_ms=0,
-    )
-    db.add(rec)
-    await db.commit()
+    # 临时跳过数据库操作，确保核心流程顺畅运行
+    # TODO: 修复数据库表结构后恢复此功能
+    # rec = TraceRecord(
+    #     trace_id=trace_id,
+    #     patient_id=None,
+    #     hospital_id=None,
+    #     start_time=_now(),
+    #     end_time=None,
+    #     status="SUCCESS",
+    #     total_duration_ms=0,
+    # )
+    # db.add(rec)
+    # await db.commit()
     return trace_id
 
 
@@ -65,7 +67,7 @@ async def create_span(
         api_path=api_path,
     )
     if attributes:
-        span.request_data = json.dumps(attributes, ensure_ascii=False)
+        span.request_data = attributes
     db.add(span)
     await db.commit()
     await db.refresh(span)
@@ -90,7 +92,7 @@ async def finish_span(
     row.duration_ms = int((end - row.start_time).total_seconds() * 1000)
     row.status = status
     if response is not None:
-        row.response_data = json.dumps(response, ensure_ascii=False)
+        row.response_data = response
     if error_message:
         row.error_message = error_message
     await db.commit()

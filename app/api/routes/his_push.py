@@ -15,10 +15,17 @@ from app.core.database import get_database
 from app.core.config import settings
 from app.schemas.his_schemas import CDSSMessage, HisPushResponse, HisPushResponseData
 from app.models.database_models import HisPushLog
+from app.services.test_net_assistant import call_recommend_api
 from app.services.his_service import HisService
 from app.services.websocket_service import WebSocketService
 
 router = APIRouter()
+
+
+@router.options("/CHKR01/rest/")
+async def options_his_push():
+    """处理CORS预检请求"""
+    return {"message": "CORS preflight OK"}
 
 
 @router.post("/CHKR01/rest/", response_model=HisPushResponse)
@@ -147,7 +154,40 @@ async def receive_his_push(
         logger.bind(name="app.api.routes.his_push").info(
             f"✅ HIS推送处理完成: message_id={message_id}"
         )
-        
+
+        # 测试net 客户端 后续删除 封装请求数据
+        logger.bind(name="app.api.routes.his_push").info(f"net客户端数据推送开始")
+        net_assist_schema = {
+            "department": cdss_message.deptDesc,
+            "patientId": cdss_message.patNo,
+            "gender": cdss_message.itemData.patientSex,
+            "complaints": cdss_message.itemData.clinicInfo,
+            "visitDate": cdss_message.msgTime,
+            "name": cdss_message.patName,
+            "source": cdss_message.userIP,
+            "diagnosis": "ut Ut",
+            "age": cdss_message.itemData.patientAge,
+            "abstractHistory": cdss_message.itemData.abstractHistory
+        }
+        try:
+            logger.bind(name="app.api.routes.his_push").info(f"🚀 开始调用外部推荐API: {net_assist_schema}")
+            result = await call_recommend_api(net_assist_schema)
+            logger.bind(name="app.api.routes.his_push").info(f"✅ net客户端数据推送完毕，响应: {result}")
+        except Exception as api_error:
+            logger.bind(name="app.api.routes.his_push").error(f"❌ net客户端API调用失败: {str(api_error)}")
+            # 记录详细错误信息但不影响主流程
+            try:
+                his_service = HisService(db)
+                await his_service.log_system_error(
+                    module="his_push",
+                    operation="call_recommend_api",
+                    message=f"外部API调用失败: {str(api_error)}",
+                    details={"message_id": message_id, "request_data": net_assist_schema, "error": str(api_error)}
+                )
+            except:
+                pass
+
+
         return HisPushResponse(
             code=200,
             message="消息接收成功",

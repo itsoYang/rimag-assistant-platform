@@ -21,6 +21,8 @@ class PatientInfoRequest(BaseModel):
     recommend_count: int = Field(default=3, description="推荐项目数量")
     # 根据最新服务校验错误，新增必传字段（初步诊断/疑似诊断）
     diagnose_name: str = Field(default="", description="诊断名称/疑似诊断")
+    # 添加trace_id字段用于全链路追踪
+    trace_id: Optional[str] = Field(None, description="追踪ID")
 
 
 class CheckItemWithReasonResponse(BaseModel):
@@ -68,6 +70,36 @@ class AiProxyResponseData(BaseModel):
     processing_time: float = Field(..., description="处理时间（秒）")
     ai_service: str = Field(..., description="AI服务名称")
     session_id: str = Field(..., description="会话ID")
+
+
+class AiRecommendationRequest(BaseModel):
+    """AI推荐请求模型"""
+    session_id: str = Field(..., description="会话ID")
+    patient_id: str = Field(..., description="患者ID")
+    doctor_id: str = Field(..., description="医生ID")
+    department: str = Field(..., description="科室")
+    patient_sex: str = Field(..., description="患者性别")
+    patient_age: str = Field(..., description="患者年龄")
+    abstract_history: str = Field(..., description="病史摘要")
+    clinic_info: str = Field(..., description="主诉")
+    diagnose_name: str = Field(default="", description="诊断名称")
+    recommend_count: int = Field(default=3, description="推荐项目数量")
+    source: str = Field(default="lip", description="来源")
+    # 添加trace_id字段用于全链路追踪
+    trace_id: Optional[str] = Field(None, description="追踪ID")
+
+
+class AiRecommendationResponse(BaseModel):
+    """AI推荐响应模型"""
+    code: int = Field(..., description="响应码")
+    message: str = Field(..., description="响应消息")
+    session_id: str = Field(..., description="会话ID")
+    recommendations: List[AiRecommendationResult] = Field(default=[], description="推荐列表")
+    total_count: int = Field(default=0, description="总数量")
+    processing_time: float = Field(default=0.0, description="处理时间（秒）")
+    finish: bool = Field(default=True, description="是否完成")
+    partial: bool = Field(default=False, description="是否为部分结果")
+    error: Optional[str] = Field(None, description="错误信息")
 
 
 class AiServiceConfig(BaseModel):

@@ -250,7 +250,25 @@ async def handle_ai_recommend_request(client_id: str, data: dict, db: AsyncSessi
 
         # 重建CDSS消息
         import json as _json
-        item_dict = _json.loads(his_log.item_data) if his_log.item_data else {}
+        # 处理item_data的类型检查：可能是字典对象或JSON字符串
+        if his_log.item_data:
+            if isinstance(his_log.item_data, dict):
+                item_dict = his_log.item_data
+            elif isinstance(his_log.item_data, str):
+                try:
+                    item_dict = _json.loads(his_log.item_data)
+                except _json.JSONDecodeError as e:
+                    logger.bind(name="app.api.routes.websocket_manager").warning(
+                        f"[AI-REQ] item_data JSON解析失败: {e}, 使用空字典"
+                    )
+                    item_dict = {}
+            else:
+                logger.bind(name="app.api.routes.websocket_manager").warning(
+                    f"[AI-REQ] item_data类型异常: {type(his_log.item_data)}, 使用空字典"
+                )
+                item_dict = {}
+        else:
+            item_dict = {}
         item = ItemData(**item_dict)
         cdss_message = CDSSMessage(
             systemId=his_log.system_id,
