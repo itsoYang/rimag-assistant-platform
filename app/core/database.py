@@ -36,6 +36,7 @@ async def get_database():
     async with AsyncSessionLocal() as session:
         try:
             yield session
+            await session.commit()
         except Exception as e:
             await session.rollback()
             logger.error(f"数据库会话错误: {e}")

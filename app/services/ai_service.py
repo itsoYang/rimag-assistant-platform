@@ -79,6 +79,12 @@ class AiService:
                 f"✅ AI推荐调用成功: request_id={request_id}, count={len(recommendations)}, time={processing_time}s"
             )
             
+            # 结束trace
+            try:
+                await finish_trace(self.db, trace_id, status="SUCCESS")
+            except Exception:
+                pass
+            
             return recommendations
             
         except Exception as e:
@@ -103,6 +109,13 @@ class AiService:
             except:
                 pass
             
+            # 结束trace（失败状态）
+            try:
+                if 'trace_id' in locals():
+                    await finish_trace(self.db, trace_id, status="FAILED", error_message=str(e))
+            except Exception:
+                pass
+            
             raise
 
     async def call_ai_recommendation_streaming(
@@ -111,6 +124,7 @@ class AiService:
         request_id: str,
         client_id: str,
         websocket_service: WebSocketService,
+        trace_id: str,
         his_push_log_id: Optional[str] = None,
     ) -> List[AiRecommendationResult]:
         """调用外部AI推荐服务（边解析边通过WebSocket推送增量结果）"""
@@ -120,8 +134,7 @@ class AiService:
         recommendations_dict: Dict[str, Dict[str, str]] = {}
 
         try:
-            # Trace & Span 开始
-            trace_id = await create_trace(self.db, request_id=request_id, client_id=client_id)
+            # Span 开始（使用外部传入的trace_id）
             span_ai = await create_span(self.db, trace_id, name="ai_stream_call", service_name="Assistant-Server", api_path=self.endpoint)
             ai_request = self._build_ai_request(cdss_message, request_id, trace_id)
 
@@ -323,10 +336,15 @@ class AiService:
             try:
                 session_id = await self._ensure_ai_session(
                     patient_id=cdss_message.patNo,
-                    visit_id=cdss_message.admId,
-                    doctor_id=cdss_message.userCode,
+                    client_id=client_id,
+                    hospital_id=None,
                 )
-                await self._append_ai_session_record(session_id=session_id, request_id=request_id, summary=None)
+                await self._append_ai_session_record(
+                    session_id=session_id, 
+                    service_name="ai_recommendation",
+                    request_data={"request_id": request_id},
+                    response_data={"recommendations_count": len(final_list)}
+                )
             except Exception:
                 pass
 
@@ -335,6 +353,7 @@ class AiService:
                 await self._save_service_call(
                     request_id=request_id,
                     client_id=client_id,
+                    service_id="ai_recommendation_service",
                     status="success",
                     duration_ms=int(total_time * 1000),
                 )
@@ -344,6 +363,7 @@ class AiService:
             # 收尾 Trace/Span
             try:
                 await finish_span(self.db, span_ai, status="SUCCESS", response={"count": len(final_list)})
+                # 注意：这里不调用finish_trace，因为trace_id是从外部传入的，由调用方负责结束trace
             except Exception:
                 pass
 
@@ -385,10 +405,15 @@ class AiService:
             try:
                 session_id = await self._ensure_ai_session(
                     patient_id=cdss_message.patNo,
-                    visit_id=cdss_message.admId,
-                    doctor_id=cdss_message.userCode,
+                    client_id=client_id,
+                    hospital_id=None,
                 )
-                await self._append_ai_session_record(session_id=session_id, request_id=request_id, summary=str(e))
+                await self._append_ai_session_record(
+                    session_id=session_id, 
+                    service_name="ai_recommendation",
+                    request_data={"request_id": request_id},
+                    response_data={"error": str(e)}
+                )
             except Exception:
                 pass
 
@@ -397,9 +422,9 @@ class AiService:
                 await self._save_service_call(
                     request_id=request_id,
                     client_id=client_id,
+                    service_id="ai_recommendation_service",
                     status="failed",
                     duration_ms=int(elapsed * 1000),
-                    error_message=str(e),
                 )
             except Exception:
                 pass
@@ -409,6 +434,7 @@ class AiService:
                 # 若上文创建 span_ai 失败，忽略
                 if 'span_ai' in locals():
                     await finish_span(self.db, span_ai, status="FAILED", error_message=str(e))
+                # 注意：这里不调用finish_trace，因为trace_id是从外部传入的，由调用方负责结束trace
             except Exception:
                 pass
 
@@ -620,6 +646,7 @@ class AiService:
         self,
         request_id: str,
         client_id: str,
+        service_id: str,
         status: str,
         duration_ms: int | None = None,
         error_message: str | None = None,
@@ -627,11 +654,11 @@ class AiService:
         """保存服务调用明细（用于统计）"""
         try:
             call = ServiceCall(
-                request_id=request_id,
                 client_id=client_id,
+                service_id=service_id,
                 status=status,
-                duration_ms=duration_ms,
-                error_message=error_message,
+                latency_ms=duration_ms,
+                # 移除不存在的request_id字段，使用正确的latency_ms字段名
             )
             self.db.add(call)
             await self.db.commit()
@@ -639,9 +666,9 @@ class AiService:
             await self.db.rollback()
             logger.bind(name="app.services.ai_service").error(f"❌ 保存服务调用明细失败: {e}")
 
-    async def _ensure_ai_session(self, patient_id: str, visit_id: str | None, doctor_id: str | None) -> str:
+    async def _ensure_ai_session(self, patient_id: str, client_id: str, hospital_id: str | None = None) -> str:
         """确保存在会话，返回会话ID。session_key = patNo#YYYYMMDD"""
-        from datetime import datetime
+        from datetime import datetime, date
         session_key = f"{patient_id}#{datetime.now().strftime('%Y%m%d')}"
         try:
             from sqlalchemy import select
@@ -655,8 +682,10 @@ class AiService:
             row = AiSession(
                 session_key=session_key,
                 patient_id=patient_id,
-                visit_id=visit_id,
-                doctor_id=doctor_id,
+                client_id=client_id,
+                hospital_id=hospital_id,
+                session_date=date.today(),
+                # 移除不存在的visit_id和doctor_id字段，使用正确的client_id和session_date字段
             )
             self.db.add(row)
             await self.db.commit()
@@ -667,10 +696,17 @@ class AiService:
             logger.bind(name="app.services.ai_service").error(f"❌ 确保会话失败: {e}")
             raise
 
-    async def _append_ai_session_record(self, session_id: str, request_id: str, summary: str | None) -> None:
+    async def _append_ai_session_record(self, session_id: str, service_name: str, request_data: dict | None = None, response_data: dict | None = None, duration_ms: int | None = None) -> None:
         """追加会话明细记录"""
         try:
-            rec = AiSessionRecord(session_id=session_id, request_id=request_id, summary=summary)
+            rec = AiSessionRecord(
+                session_id=session_id, 
+                service_name=service_name,
+                request_data=request_data,
+                response_data=response_data,
+                duration_ms=duration_ms
+                # 移除不存在的request_id和summary字段，使用正确的service_name等字段
+            )
             self.db.add(rec)
             await self.db.commit()
         except Exception as e:

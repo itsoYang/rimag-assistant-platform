@@ -276,7 +276,7 @@ class TraceRecord(Base):
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=True)
     status = Column(String(20), nullable=False)
-    total_duration_ms = Column(Integer, nullable=False)
+    total_duration_ms = Column(Integer, nullable=True, default=0)
     create_time = Column(DateTime, default=func.current_timestamp(), nullable=False)
 
 
@@ -290,8 +290,8 @@ class SpanRecord(Base):
     service_name = Column(String(50), nullable=False)
     span_name = Column(String(100), nullable=False)
     start_time = Column(DateTime, nullable=False)
-    end_time = Column(DateTime, nullable=False)
-    duration_ms = Column(Integer, nullable=False)
+    end_time = Column(DateTime, nullable=True)
+    duration_ms = Column(Integer, nullable=True, default=0)
     status = Column(String(20), nullable=False)
     request_data = Column(JSON, nullable=True)
     response_data = Column(JSON, nullable=True)

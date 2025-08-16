@@ -18,7 +18,7 @@ from sqlalchemy import select, and_
 from app.models.database_models import HisPushLog, ClientInfo
 from app.schemas.his_schemas import CDSSMessage, ItemData
 from app.services.permission_service import is_client_allowed
-from app.services.trace_service import create_trace, create_span, finish_span
+from app.services.trace_service import create_trace, create_span, finish_span, finish_trace
 
 router = APIRouter()
 
@@ -305,22 +305,33 @@ async def handle_ai_recommend_request(client_id: str, data: dict, db: AsyncSessi
 
         # 追踪：创建 Trace 与关键节点 Span（对齐新追踪实现）
         trace_id = await create_trace(db, request_id=request_id, client_id=client_id)
-        span_ws = await create_span(db, trace_id, name="ws_handle_ai_request", service_name="Assistant-Server", api_path=f"/ws/client/{client_id}", attributes={"patient_id": patient_id, "visit_id": visit_id})
+        span_ws = None
+        span_ai = None
         try:
+            span_ws = await create_span(db, trace_id, name="ws_handle_ai_request", service_name="Assistant-Server", api_path=f"/ws/client/{client_id}", attributes={"patient_id": patient_id, "visit_id": visit_id})
             span_ai = await create_span(db, trace_id, name="ai_stream_call", service_name="Assistant-Server", attributes={"doctor_id": doctor_id})
             await ai_service.call_ai_recommendation_streaming(
-            cdss_message=cdss_message,
-            request_id=request_id,
-            client_id=client_id,
-            websocket_service=ws_service,
-            his_push_log_id=str(his_log.id),
+                cdss_message=cdss_message,
+                request_id=request_id,
+                client_id=client_id,
+                websocket_service=ws_service,
+                trace_id=trace_id,
+                his_push_log_id=str(his_log.id),
             )
-            await finish_span(db, span_ai, status="SUCCESS")
+            if span_ai:
+                await finish_span(db, span_ai, status="SUCCESS")
+            if span_ws:
+                await finish_span(db, span_ws, status="SUCCESS")
+            # 成功完成时结束trace
+            await finish_trace(db, trace_id, status="SUCCESS")
         except Exception as e:
-            await finish_span(db, span_ai, status="FAILED", error_message=str(e))  # type: ignore
+            if span_ai:
+                await finish_span(db, span_ai, status="FAILED", error_message=str(e))
+            if span_ws:
+                await finish_span(db, span_ws, status="FAILED", error_message=str(e))
+            # 异常时结束trace并设置为FAILED状态
+            await finish_trace(db, trace_id, status="FAILED", error_message=str(e))
             raise
-        finally:
-            await finish_span(db, span_ws, status="SUCCESS")
 
     except Exception as e:
         logger.bind(name="app.api.routes.websocket_manager").error(

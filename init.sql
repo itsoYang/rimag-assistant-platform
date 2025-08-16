@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS span_record (
 	service_name VARCHAR(50) NOT NULL,
 	span_name VARCHAR(100) NOT NULL,
 	start_time DATETIME NOT NULL,
-	end_time DATETIME NOT NULL,
+	end_time DATETIME DEFAULT NULL,
 	duration_ms INT NOT NULL,
 	status VARCHAR(20) NOT NULL,
 	request_data JSON DEFAULT NULL,
