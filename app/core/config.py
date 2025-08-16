@@ -17,18 +17,8 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     
-    # CORS配置
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:8080",
-        "http://localhost:63342",  # 浏览器开发服务器
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:8080",
-        "http://127.0.0.1:63342",
-        "file://",  # 支持本地HTML文件访问
-        "null",     # 支持file协议的null origin
-        "*"         # 开发阶段允许所有来源（生产环境需要限制）
-    ]
+    # CORS配置 - 简化版本，直接从.env读取
+    ALLOWED_ORIGINS: str = '["http://localhost:3000","http://localhost:8080","http://localhost:63342","http://127.0.0.1:3000","http://127.0.0.1:8080","http://127.0.0.1:63342","file://","null","*"]'
     
     # MySQL数据库配置
     MYSQL_HOST: str = "localhost"
